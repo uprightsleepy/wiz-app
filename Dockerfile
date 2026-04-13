@@ -17,5 +17,3 @@ COPY --from=build  /go/src/tasky/assets ./assets
 COPY --from=build  /app/wizexercise.txt .
 EXPOSE 8080
 ENTRYPOINT ["/app/tasky"]
-
-
