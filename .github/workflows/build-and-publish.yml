@@ -18,7 +18,27 @@ env:
   ECR_REPOSITORY: wiz-panel-images
 
 jobs:
+  # Detect which files changed to determine what to run
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      k8s: ${{ steps.filter.outputs.k8s }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - '**'
+              - '!k8s/**'
+            k8s:
+              - 'k8s/**'
+
   build-and-push:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -56,3 +76,29 @@ jobs:
 
       - name: Deploy to EKS
         run: kubectl set image deployment/wiz-app wiz-app=${{ steps.build-publish.outputs.full_image }}
+
+  deploy-k8s-manifests:
+    needs: changes
+    if: needs.changes.outputs.k8s == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/Wiz-Labs-297-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name Wiz-Labs-297-eks --region ${{ env.AWS_REGION }}
+
+      - name: Apply K8s manifests
+        run: kubectl apply -f k8s/
+
+      - name: Restart deployment
+        run: kubectl rollout restart deployment/wiz-app
