@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wiz-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wiz-app
+  template:
+    metadata:
+      labels:
+        app: wiz-app
+    spec:
+      serviceAccountName: wiz-app
+      containers:
+      - name: wiz-app
+        image: 637423347157.dkr.ecr.us-east-1.amazonaws.com/wiz-panel-images:bb80d9b0560449f5613c13b0befd3e5a2c61b7dd
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: wiz-app-secrets
+              key: MONGODB_URI
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: wiz-app-secrets
+              key: SECRET_KEY
+
