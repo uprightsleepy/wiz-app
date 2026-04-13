@@ -21,6 +21,7 @@ jobs:
         run: docker build . -f Dockerfile -t wiz-app:scan
 
       - name: Run Trivy vulnerability scanner
+        id: trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: wiz-app:scan
@@ -30,7 +31,26 @@ jobs:
           output: trivy-results.txt
 
       - name: Post scan results to PR
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: actions/github-script@v6
         with:
-          header: trivy-scan
-          path: trivy-results.txt
+          script: |
+            const fs = require('fs');
+            const results = fs.readFileSync('trivy-results.txt', 'utf8');
+            const output = `#### Trivy Container Scan
+
+            <details><summary>Show Results</summary>
+
+            \`\`\`
+            ${results}
+            \`\`\`
+
+            </details>
+
+            *Scanned image: \`wiz-app:scan\` | Severity: CRITICAL, HIGH*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
