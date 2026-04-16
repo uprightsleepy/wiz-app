@@ -1,0 +1,69 @@
+name: Simulated Attack
+
+on:
+  workflow_dispatch:
+
+permissions: read-all
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS Credentials (as GitHub Actions role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/Wiz-Labs-297-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Show who we are
+        run: aws sts get-caller-identity
+
+      - name: Attempt 1 - Create S3 bucket (should fail - boundary blocks s3:CreateBucket)
+        continue-on-error: true
+        run: |
+          echo "::group::Attempting to create S3 bucket..."
+          aws s3api create-bucket --bucket wiz-attacker-exfil-$GITHUB_RUN_ID --region $AWS_REGION \
+            && echo "::error::Attack succeeded — boundary did NOT block this!" \
+            || echo "::notice::Blocked by permissions boundary"
+          echo "::endgroup::"
+
+      - name: Attempt 2 - List all S3 buckets (should fail - boundary has no s3:List)
+        continue-on-error: true
+        run: |
+          echo "::group::Attempting to list all S3 buckets..."
+          aws s3api list-buckets \
+            && echo "::error::Attack succeeded — boundary did NOT block this!" \
+            || echo "::notice::Blocked by permissions boundary"
+          echo "::endgroup::"
+
+      - name: Attempt 3 - Create IAM user (should fail - boundary has no iam:CreateUser)
+        continue-on-error: true
+        run: |
+          echo "::group::Attempting to create an IAM user..."
+          aws iam create-user --user-name attacker-persistence \
+            && echo "::error::Attack succeeded — boundary did NOT block this!" \
+            || echo "::notice::Blocked by permissions boundary"
+          echo "::endgroup::"
+
+      - name: Attempt 4 - Describe EC2 instances (should fail - boundary has no ec2:Describe)
+        continue-on-error: true
+        run: |
+          echo "::group::Attempting to enumerate EC2 instances..."
+          aws ec2 describe-instances --max-items 1 \
+            && echo "::error::Attack succeeded — boundary did NOT block this!" \
+            || echo "::notice::Blocked by permissions boundary"
+          echo "::endgroup::"
+
+      - name: Sanity check - Allowed action (ECR auth should succeed)
+        run: |
+          echo "::group::Confirming ECR actions still work (in boundary scope)..."
+          aws ecr get-authorization-token --query 'authorizationData[0].expiresAt' --output text
+          echo "::notice::ECR auth succeeded — role still works for its intended purpose"
+          echo "::endgroup::"
