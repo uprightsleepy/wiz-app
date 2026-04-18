@@ -74,8 +74,12 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name Wiz-Labs-297-eks --region ${{ env.AWS_REGION }}
 
+      - name: Set image tag in kustomization
+        working-directory: k8s
+        run: kustomize edit set image wiz-panel-images=${{ steps.build-publish.outputs.full_image }}
+
       - name: Deploy to EKS
-        run: kubectl set image deployment/wiz-app wiz-app=${{ steps.build-publish.outputs.full_image }}
+        run: kubectl apply -k k8s/
 
   deploy-k8s-manifests:
     needs: changes
@@ -98,7 +102,7 @@ jobs:
         run: aws eks update-kubeconfig --name Wiz-Labs-297-eks --region ${{ env.AWS_REGION }}
 
       - name: Apply K8s manifests
-        run: kubectl apply -f k8s/
+        run: kubectl apply -k k8s/
 
       - name: Restart deployment
         run: kubectl rollout restart deployment/wiz-app

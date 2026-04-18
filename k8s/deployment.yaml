@@ -15,7 +15,7 @@ spec:
       serviceAccountName: wiz-app
       containers:
       - name: wiz-app
-        image: 637423347157.dkr.ecr.us-east-1.amazonaws.com/wiz-panel-images:bb80d9b0560449f5613c13b0befd3e5a2c61b7dd
+        image: wiz-panel-images:latest
         ports:
         - containerPort: 8080
         env:
